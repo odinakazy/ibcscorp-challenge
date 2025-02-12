@@ -22,16 +22,19 @@ export default function MiniDashboard() {
     queryFn: fetchUsers,
   });
 
+  // creating a new users
   const addUserMutation = useMutation({
     mutationFn: addUser,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
   });
 
+  // updating the user details
   const updateUserMutation = useMutation({
     mutationFn: updateUser,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
   });
 
+  // deleting the user
   const deleteUserMutation = useMutation({
     mutationFn: deleteUser,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
@@ -58,6 +61,7 @@ export default function MiniDashboard() {
     setSearch(value);
   }, 300);
 
+  // filtering the users
   const filteredUsers = (users || [])
     .filter((user) => user.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a[sortBy].localeCompare(b[sortBy]));
