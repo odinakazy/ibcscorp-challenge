@@ -1,15 +1,18 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchUsers } from "../apis/fetchUser";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchUsers, addUser, updateUser, deleteUser } from "../apis/fetchUser";
 import Skeleton from "@/loader/skeleton";
 import { User } from "../types";
-import { FaSearch, FaSort } from "react-icons/fa";
+import { FaSearch, FaSort, FaEdit, FaTrash, FaPlus } from "react-icons/fa";
 import debounce from "lodash.debounce";
+import UserModal from "@/modals/userModal";
 // import { debounce } from "lodash";
 
 export default function MiniDashboard() {
+  const queryClient = useQueryClient();
   const {
     data: users,
     error,
@@ -19,9 +22,26 @@ export default function MiniDashboard() {
     queryFn: fetchUsers,
   });
 
+  const addUserMutation = useMutation({
+    mutationFn: addUser,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: updateUser,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: deleteUser,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  });
+
   const [search, setSearch] = useState<string>("");
   const [sortBy, setSortBy] = useState<"name" | "email">("name");
   const [page, setPage] = useState<number>(1);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showModal, setShowModal] = useState<boolean>(false);
   const pageSize = 5;
 
   if (isLoading) return <Skeleton />;
@@ -42,27 +62,28 @@ export default function MiniDashboard() {
     .filter((user) => user.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a[sortBy].localeCompare(b[sortBy]));
 
-  // const filteredUsers = useMemo(() => {
-  //   return (users || [])
-  //     .filter((user) => user.name.toLowerCase().includes(search.toLowerCase()))
-  //     .sort((a, b) => {
-  //       if (a[sortBy] && b[sortBy]) {
-  //         return a[sortBy].localeCompare(b[sortBy]);
-  //       }
-  //       return 0;
-  //     });
-  // }, [users, search, sortBy]);
-
   const paginatedUsers = filteredUsers.slice(
     (page - 1) * pageSize,
     page * pageSize
   );
 
   return (
-    <div className="p-8 max-w-5xl mx-auto bg-white shadow-lg rounded-xl border border-gray-200">
+    <div className="relative p-8 max-w-5xl mx-auto bg-white shadow-lg rounded-xl border border-gray-200">
       <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
         Mini Dashboard
       </h1>
+
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => {
+            setSelectedUser(null);
+            setShowModal(true);
+          }}
+          className="bg-blue-500 text-white py-2 px-4 rounded-lg flex items-center"
+        >
+          <FaPlus className="mr-2" /> Add User
+        </button>
+      </div>
 
       {/* Search & Sort Controls */}
       <div className="flex flex-col md:flex-row gap-4 mb-6 justify-between items-center">
@@ -95,7 +116,7 @@ export default function MiniDashboard() {
               <th className="py-3 px-4">Name</th>
               <th className="py-3 px-4">Email</th>
               <th className="py-3 px-4">Phone</th>
-              <th className="py-3 px-4">Website</th>
+              <th className="py-3 px-4">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -106,8 +127,22 @@ export default function MiniDashboard() {
                   {user.email}
                 </td>
                 <td className="py-3 px-4">{user.phone}</td>
-                <td className="py-3 px-4 text-blue-600 underline">
-                  {user.website}
+                <td className="py-3 px-4 flex space-x-2">
+                  <button
+                    onClick={() => {
+                      setSelectedUser(user);
+                      setShowModal(true);
+                    }}
+                    className="text-blue-500 hover:text-blue-700"
+                  >
+                    <FaEdit />
+                  </button>
+                  <button
+                    onClick={() => deleteUserMutation.mutate(user.id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <FaTrash />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -133,6 +168,22 @@ export default function MiniDashboard() {
           Next
         </button>
       </div>
+
+      {showModal && (
+        <UserModal
+          isOpen={showModal} // Pass the isOpen prop
+          user={selectedUser}
+          onClose={() => setShowModal(false)}
+          onSubmit={(data: any) => {
+            if (selectedUser) {
+              updateUserMutation.mutate(data);
+            } else {
+              addUserMutation.mutate(data);
+            }
+            setShowModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }
